@@ -38,11 +38,13 @@ public class YoutubeDataApiClient {
   public static class Test2Setting {
     public static final String PART = "id";
     public static final String QUERY = "Apex Legends";
-    public static final String REGION_CODE = "JP";
     public static final String RESOURCE_TYPE = "video";
     public static final String SORT_ORDER = "viewCount";
   }
 
+  /**
+   * 日本人動画抽出リクエスト実行時設定
+   */
   public static class ExtractJapaneseVideoSetting {
     public static final String PART = "snippet";
   }

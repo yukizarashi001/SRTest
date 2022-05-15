@@ -36,7 +36,7 @@ public class YoutubeDataFindService {
      * 
      * note:
      * 何度か実行してみたが、WEBサイト上との検索結果と一致しない場合があった.
-     * Youtube側でAPIのレスポンスとして返す結果を一定時間ごとに保存されたデータとしている可能性がある？（要検証）
+     * Youtube側でAPIのレスポンスとして返す結果を、一定時間ごとに保存されたデータとしている可能性がある？（要検証）
      * 
      * @param type 動画探索種別
      * @return 動画URLリスト
@@ -52,12 +52,12 @@ public class YoutubeDataFindService {
 
         switch(type) {
             case SHOWROOM:
-                return this.recursiveFindShowRoomVideoList(apiKey, new ArrayList<>(), StringUtils.EMPTY, REQUIRED_SHOWROOM_VIDEO_COUNT)
+                return this.recursiveFindShowRoomVideoIdList(apiKey, new ArrayList<>(), StringUtils.EMPTY, REQUIRED_SHOWROOM_VIDEO_COUNT)
                 .stream()
                 .map(id -> YOUTUBE_VIDEO_BASE_URL + id)
                 .collect(Collectors.toList());
             case APEX_LEGENDS:
-                return this.recursiveFindApexLegendsVideoList(apiKey, new ArrayList<>(), StringUtils.EMPTY, REQUIRED_APEX_LEGENDS_VIDEO_COUNT)
+                return this.recursiveFindApexLegendsVideoIdList(apiKey, new ArrayList<>(), StringUtils.EMPTY, REQUIRED_APEX_LEGENDS_VIDEO_COUNT)
                 .stream()
                 .map(id -> YOUTUBE_VIDEO_BASE_URL + id)
                 .collect(Collectors.toList());
@@ -69,7 +69,7 @@ public class YoutubeDataFindService {
 
     /**
      * Youtube Data APIを実行し要求数に応じた「SHOWROOM」関連動画IDリストを返却する.
-     * 1度に取得できる動画数の上限を超えた場合は再帰処理される.
+     * 1度の処理で生成した動画IDリストのサイズが動画要求数に満たない場合は再帰処理される.
      * （nextPageTokenが存在し、かつ次ページに50件存在しない場合は、要求数以下で返却される場合もある）
      * 
      * @param request APIリクエスト
@@ -77,7 +77,7 @@ public class YoutubeDataFindService {
      * @param requiredVideoCount 要求動画数
      * @return 動画IDリスト
      */
-    private List<String> recursiveFindShowRoomVideoList(final String apiKey, final List<String> videoIdList, final String pageToken, final long requiredVideoCount) {
+    private List<String> recursiveFindShowRoomVideoIdList(final String apiKey, final List<String> videoIdList, final String pageToken, final long requiredVideoCount) {
         try {
             final YouTube apiClient = YoutubeDataApiClient.getClient();
 
@@ -109,7 +109,7 @@ public class YoutubeDataFindService {
             final String nextPageToken = searchResponse.getNextPageToken();
 
             if(!nextPageToken.isEmpty() && videoIdList.size() < requiredVideoCount) {
-                recursiveFindShowRoomVideoList(apiKey, videoIdList, nextPageToken, requiredVideoCount);
+                recursiveFindShowRoomVideoIdList(apiKey, videoIdList, nextPageToken, requiredVideoCount);
             }
         } catch (IOException e) {
             System.err.println("IO error: " + e.getCause() + " : " + e.getMessage());
@@ -123,7 +123,7 @@ public class YoutubeDataFindService {
 
     /**
      * Youtube Data APIを実行し要求数に応じた「Apex Legends」関連動画IDリストを返却する.
-     * 1度に取得できる動画数の上限を超えた場合は再帰処理される.
+     * 1度の処理で生成した動画IDリストのサイズが動画要求数に満たない場合は再帰処理される.
      * （nextPageTokenが存在し、かつ次ページに50件存在しない場合は、要求数以下で返却される場合もある）
      * 
      * @param request APIリクエスト
@@ -131,15 +131,15 @@ public class YoutubeDataFindService {
      * @param requiredVideoCount 要求動画数
      * @return 動画IDリスト
      */
-    private List<String> recursiveFindApexLegendsVideoList(final String apiKey, final List<String> videoIdList, final String pageToken, final long requiredVideoCount) {
-        Date now = new Date();
+    private List<String> recursiveFindApexLegendsVideoIdList(final String apiKey, final List<String> videoIdList, final String pageToken, final long requiredVideoCount) {
+        final Date now = new Date();
 
-        Calendar calendar = Calendar.getInstance();
+        final Calendar calendar = Calendar.getInstance();
         calendar.setTime(now);
         calendar.add(Calendar.DAY_OF_MONTH, -3);
 
         // 3日前の日時を取得
-        Date threeDaysAgo = calendar.getTime();
+        final Date threeDaysAgo = calendar.getTime();
         
         try {
             final YouTube apiClient = YoutubeDataApiClient.getClient();
@@ -149,7 +149,6 @@ public class YoutubeDataFindService {
             .list(YoutubeDataApiClient.Test2Setting.PART)
             .setKey(apiKey)
             .setQ(YoutubeDataApiClient.Test2Setting.QUERY)
-            .setRegionCode(YoutubeDataApiClient.Test2Setting.REGION_CODE)
             .setType(YoutubeDataApiClient.Test2Setting.RESOURCE_TYPE)
             .setMaxResults(YoutubeDataApiClient.ONCE_REQUIRED_VIDEO_COUNT)
             .setOrder(YoutubeDataApiClient.Test2Setting.SORT_ORDER)
@@ -181,7 +180,7 @@ public class YoutubeDataFindService {
             final String nextPageToken = searchResponse.getNextPageToken();
 
             if(!nextPageToken.isEmpty() && videoIdList.size() < requiredVideoCount) {
-                recursiveFindApexLegendsVideoList(apiKey, videoIdList, nextPageToken, requiredVideoCount);
+                recursiveFindApexLegendsVideoIdList(apiKey, videoIdList, nextPageToken, requiredVideoCount);
             }
         } catch (IOException e) {
             System.err.println("IO error: " + e.getCause() + " : " + e.getMessage());
@@ -199,13 +198,13 @@ public class YoutubeDataFindService {
      * 
      * note:
      * 「日本人の動画」の定義が難しく、API仕様書を確認し、動画投稿者の国籍を取得することも考えたが現状はできなさそうで、
-     * 動画撮影場所から日本の地域で撮影されたものとして絞り込んだとしてもそれが日本人の動画かどうかは判別がつかず、
-     * 指定した国の検索結果として日本を指定したとしても同様に日本人の動画かどうか判定できないと判断した.
+     * 動画撮影場所などの位置情報から日本の地域で撮影されたものを絞り込んだとしてもそれが日本人の動画かどうかは判別がつかず、
+     * リージョンコードに日本を指定して検索した結果も同様に日本人の動画かどうか判定するには情報が不足していると判断した.
      * そのため、今回は「デフォルトの音声が日本語の動画 = 日本人の動画」と見做して抽出を行った.
      * 
      * @param apiKey APIキー
      * @param videoIdList 動画IDリスト
-     * @return 日本人投稿者の動画IDリスト
+     * @return 日本人の動画IDリスト
      */
     private List<String> extractJapaneseVideoIdList(final String apiKey, final List<String> videoIdList) {
         final YouTube apiClient = YoutubeDataApiClient.getClient();

@@ -42,33 +42,34 @@ $ YOUTUBE_API_KEY={APIキー} ./gradlew run -DmainClass=scripts.Test2
 - `Client`: 
   - アプリケーション実行者（home画面へアクセスするユーザ）
 - `Application Load Balancer`: 
-  - 各EC2インスタンスへアクセスを振り分け、負荷分散するためのロードバランサー
+  - 各EC2インスタンスへリクエストを振り分け、負荷分散するためのロードバランサー
 - `フロントサーバ`: 
   - `Amazon EC2`で構成され、静的なページを返却するコンポーネント
   - `APIサーバ`にリクエストを行い、画面の生成に必要なデータの参照・永続化を行う
 - `APIサーバ`:
-  - `Amazon EC2`で構成され、リクエストを元に永続化層へアクセスし、データを返却したり、データを保存したりするフローを担うコンポーネント
+  - `Amazon EC2`で構成され、リクエストを元に永続化層へアクセスし、その結果を返却するコンポーネント
+  - 永続化層のデータを返却したり、永続化層にデータを保存したりするフローを担う
 - `キャッシュサーバ`:
-  - `Amazon ElastiCache for Memcached`あるいは`Amazon ElastiCache for Redis`で構成される
+  - `Amazon ElastiCache for Memcached`あるいは`Amazon ElastiCache for Redis`で構成されるコンポーネント
   - `APIサーバ`からのリクエストを元に、SQLを実行した結果をキャッシュとして保持していた場合はその結果を、そうでない場合はDBにアクセスして取得した結果を返却する
 - `Amazon Aurora`:
   - 永続化が必要なデータを保持するDBサーバ
-  - 今回はデータモデル（後述）を元にDBに適用し、`動画投稿者名`、`動画視聴URL`、`動画サムネイル保存先URL`を格納しておく
+  - 今回はデータモデル（後述）を元にDBに適用し、`動画投稿者名`、`動画視聴URL`、`動画サムネイル保存先URL`を格納できるようにしておく
 - `Amazon Cloudfront`:
-  - 動画や画像コンテンツをキャッシュし、各サーバに保存する
+  - 動画や画像コンテンツをキャッシュし、各サーバに保存するコンポーネント
   - home画面から動画や画像をリクエストされた場合にはまずここにキャッシュされているかを確認し、キャッシュされていればそのコンテンツを、そうでなければ`Amazon S3`からコンテンツを取得して返却する
 - `Amazon S3`:
   - 動画や画像を保存しておくコンポーネント
   - 今回はDBに保存している`動画サムネイル保存先URL`に基づいた位置に画像ファイルを配置する
 
 #### 処理フロー
-①`Client`からInternet経由でリクエストが発生する。<br>
+①`Client`からインターネット経由でリクエストが送信される。<br>
 ②リクエストは最初の`Application Load Balancer`に送られ、`フロントサーバ`を構成するいずれかの`Amazon EC2`に割り振られる。<br>
 ③`フロントサーバ`から次の`Application Load Balancer`にリクエストを送り、`APIサーバ`から永続化層のデータの参照・永続化を行う。<br>
 ④`APIサーバ`から永続化層へのアクセスが発生する場合、まずは`キャッシュサーバ`に保存されたSQLの実行結果がないか確認する。<br>`キャッシュサーバ`に実行結果が残っていればその結果を、実行結果がなければ`Amazon Aurora`に向けてSQLを実行し、その結果を返却する。<br>
 ⑤`APIサーバ`の結果を元に`フロントサーバ`でhome画面を生成する。<br>
-⑥home画面を生成する際に`サムネイル画像保存先URL`を元にサムネイル画像を、`動画保存先URL`を元に動画を`Amazon Cloud Front`に要求する。<br>`Amazon Cloud Front`にデータがキャッシュされていればそのコンテンツを、そうでなければ`Amazon S3`にアクセスして取得したコンテンツを返却するようにし、返却された結果を元にhome画面のレンダリングを行う。<br>
-⑦`Client`にhome画面を返却する。<br>
+⑥home画面を生成する際に`動画サムネイル保存先URL`を元にサムネイル画像を`Amazon Cloudfront`に要求する。<br>`Amazon Cloudfront`に画像がキャッシュされていればその画像を、そうでなければ`Amazon S3`にアクセスして取得した画像を返却するようにし、返却された結果を元にhome画面のレンダリングを行う。<br>
+⑦`Client`に生成したhome画面を返却する。<br>
 
 ### データモデル図（ER図）
 
@@ -85,7 +86,7 @@ $ YOUTUBE_API_KEY={APIキー} ./gradlew run -DmainClass=scripts.Test2
 ```sql
 SELECT 
 CONTRIBUTER_NAME,
-VIDEO_SAVED_URL,
+VIDEO_URL,
 THUMNAIL_SAVED_URL
 FROM
 CONTRIBUTERS,
